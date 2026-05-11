@@ -1,0 +1,196 @@
+openapi: 3.0.3
+info:
+  title: Users API
+  description: |
+    API RESTful para el registro de usuarios.
+    Todos los endpoints retornan y aceptan JSON.
+    Los mensajes de error siguen el formato: `{"mensaje": "texto del error"}`.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+servers:
+  - url: http://localhost:8081/api
+    description: Servidor de desarrollo
+
+tags:
+  - name: Users
+    description: Operaciones sobre usuarios
+
+paths:
+  /users:
+    post:
+      tags:
+        - Users
+      summary: Registro de nuevo usuario
+      description: |
+        Crea un nuevo usuario en el sistema.
+        - El correo debe tener formato `aaaaaaa@dominio.cl`.
+        - La contraseña debe contener al menos una mayúscula, letras minúsculas y exactamente dos dígitos.
+        - El correo debe ser único en el sistema.
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterUserRequest'
+            example:
+              name: "Juan Rodriguez"
+              email: "juan@rodriguez.cl"
+              password: "Hunter12"
+              phones:
+                - number: "1234567"
+                  citycode: "1"
+                  contrycode: "57"
+      responses:
+        '201':
+          description: Usuario creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Error de validación (email inválido, contraseña inválida, campos requeridos)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                email_invalido:
+                  summary: Formato de correo inválido
+                  value:
+                    mensaje: "El correo no tiene un formato válido"
+                password_invalida:
+                  summary: Formato de contraseña inválido
+                  value:
+                    mensaje: "La contraseña no tiene un formato válido"
+        '409':
+          description: Correo ya registrado en el sistema
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                mensaje: "El correo ya registrado"
+        '429':
+          description: Demasiadas solicitudes (rate limit excedido)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                mensaje: "Demasiadas solicitudes. Por favor, intente más tarde."
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    RegisterUserRequest:
+      type: object
+      required:
+        - name
+        - email
+        - password
+      properties:
+        name:
+          type: string
+          description: Nombre completo del usuario
+          example: "Juan Rodriguez"
+        email:
+          type: string
+          format: email
+          description: Correo electrónico (debe terminar en .cl)
+          example: "juan@rodriguez.cl"
+        password:
+          type: string
+          description: Contraseña (una mayúscula, minúsculas, dos dígitos)
+          example: "Hunter12"
+        phones:
+          type: array
+          description: Lista de teléfonos del usuario
+          items:
+            $ref: '#/components/schemas/PhoneRequest'
+
+    PhoneRequest:
+      type: object
+      properties:
+        number:
+          type: string
+          description: Número de teléfono
+          example: "1234567"
+        citycode:
+          type: string
+          description: Código de ciudad
+          example: "1"
+        contrycode:
+          type: string
+          description: Código de país
+          example: "57"
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Identificador único del usuario (UUID)
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        name:
+          type: string
+          description: Nombre del usuario
+        email:
+          type: string
+          description: Correo electrónico del usuario
+        phones:
+          type: array
+          items:
+            $ref: '#/components/schemas/PhoneResponse'
+        created:
+          type: string
+          format: date-time
+          description: Fecha de creación del usuario
+        modified:
+          type: string
+          format: date-time
+          description: Fecha de última modificación
+        last_login:
+          type: string
+          format: date-time
+          description: Fecha del último ingreso
+        token:
+          type: string
+          description: Token JWT de acceso
+        isactive:
+          type: boolean
+          description: Indica si el usuario está habilitado
+
+    PhoneResponse:
+      type: object
+      properties:
+        number:
+          type: string
+        citycode:
+          type: string
+        contrycode:
+          type: string
+
+    ErrorResponse:
+      type: object
+      required:
+        - mensaje
+      properties:
+        mensaje:
+          type: string
+          description: Descripción del error
+          example: "El correo ya registrado"
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

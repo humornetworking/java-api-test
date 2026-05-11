@@ -1,0 +1,54 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: users-api
+
+  datasource:
+    url: jdbc:h2:mem:usersdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: false
+
+jwt:
+  # IMPORTANT: Change this secret in production. Must be Base64-encoded and at least 256 bits.
+  secret: dGhpcy1pcy1hLXZlcnktc2VjdXJlLXNlY3JldC1rZXktZm9yLWp3dC10b2tlbi1nZW5lcmF0aW9u
+  expiration-ms: 86400000  # 24 hours
+
+app:
+  rate-limit:
+    capacity: 20
+    refill-tokens: 20
+    refill-duration-seconds: 60
+  validation:
+    email-regex: "^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.cl$"
+    password-regex: "^(?=(?:.*[0-9]){2})(?=.*[A-Z])(?=.*[a-z]).{6,}$"
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+
+logging:
+  level:
+    com.example.usersapi: DEBUG
+    org.springframework.security: INFO

@@ -1,0 +1,72 @@
+@startuml Users API - Hexagonal Architecture
+
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam componentStyle rectangle
+
+title Users API — Arquitectura Hexagonal (Ports & Adapters)
+
+package "PRIMARY ADAPTERS (Driving)" #E8F4FD {
+  [HTTP Client] as client
+  component "UserController\n(REST Adapter IN)" as controller
+  component "RegisterUserRequestDto\nRegisterUserResponseDto" as dtos
+  component "GlobalExceptionHandler" as exHandler
+}
+
+package "FILTERS / INTERCEPTORS" #FFF3E0 {
+  component "SecurityHeadersFilter\n(Order 2)" as secFilter
+  component "RateLimitFilter\n(Order 1)\n[Bucket4j - Token Bucket]" as rateFilter
+  component "JwtAuthenticationFilter\n[Spring Security]" as jwtFilter
+}
+
+package "APPLICATION CORE" #E8F5E9 {
+  package "DOMAIN" #C8E6C9 {
+    interface "RegisterUserUseCase\n(Port IN)" as useCase
+    interface "UserRepositoryPort\n(Port OUT)" as repoPort
+    interface "TokenGeneratorPort\n(Port OUT)" as tokenPort
+    interface "PasswordEncoderPort\n(Port OUT)" as passPort
+
+    component "User\nPhone\n(Domain Models)" as models
+    component "EmailAlreadyRegisteredException\nInvalidEmailFormatException\nInvalidPasswordFormatException" as exceptions
+  }
+
+  package "APPLICATION" #DCEDC8 {
+    component "RegisterUserApplicationService\n[Email regex validation]\n[Password regex validation]\n[Orchestrates ports]" as appService
+  }
+}
+
+package "SECONDARY ADAPTERS (Driven)" #FCE4EC {
+  component "UserPersistenceAdapter\n(Repository Adapter OUT)" as persistAdapter
+  component "JwtService\n(Token Adapter OUT)\n[JJWT / HS256]" as jwtService
+  component "BCryptPasswordEncoderAdapter\n(Password Adapter OUT)" as passAdapter
+
+  database "H2 In-Memory\n(users / phones tables)" as h2db
+  component "SpringDataUserRepository\n(Spring Data JPA)" as jpaRepo
+}
+
+' Relationships
+client --> rateFilter : HTTP Request
+rateFilter --> secFilter
+secFilter --> jwtFilter
+jwtFilter --> controller
+
+controller --> useCase : registerUser(command)
+controller --> dtos
+exHandler ..> controller : handles exceptions
+
+appService ..|> useCase : implements
+appService --> repoPort : existsByEmail / save
+appService --> tokenPort : generateToken
+appService --> passPort : encode
+
+persistAdapter ..|> repoPort : implements
+jwtService ..|> tokenPort : implements
+passAdapter ..|> passPort : implements
+
+persistAdapter --> jpaRepo
+jpaRepo --> h2db
+
+models <.. appService : creates
+exceptions <.. appService : throws
+
+@enduml
