@@ -31,12 +31,6 @@ jwt:
   secret: dGhpcy1pcy1hLXZlcnktc2VjdXJlLXNlY3JldC1rZXktZm9yLWp3dC10b2tlbi1nZW5lcmF0aW9u
   expiration-ms: 86400000  # 24 hours
 
-app:
-  rate-limit:
-    capacity: 20
-    refill-tokens: 20
-    refill-duration-seconds: 60
-
 springdoc:
   api-docs:
     path: /v3/api-docs

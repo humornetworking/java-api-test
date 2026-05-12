@@ -73,14 +73,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
                 mensaje: "El correo ya registrado"
-        '429':
-          description: Demasiadas solicitudes (rate limit excedido)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                mensaje: "Demasiadas solicitudes. Por favor, intente más tarde."
         '500':
           description: Error interno del servidor
           content:
