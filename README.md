@@ -12,6 +12,7 @@ API RESTful para el registro de usuarios, construida con Spring Boot 3, Java 21 
 - [Ejemplos de uso](#ejemplos-de-uso)
 - [Validaciones](#validaciones)
 - [Arquitectura](#arquitectura)
+- [Flujo de una petición](#flujo-de-una-petición)
 - [Estructura del proyecto](#estructura-del-proyecto)
 - [Tecnologías](#tecnologías)
 - [Tests](#tests)
@@ -239,6 +240,78 @@ El proyecto sigue **arquitectura hexagonal (Ports & Adapters)**:
 
 El diagrama completo en PlantUML está en [`docs/architecture.puml`](docs/architecture.puml).
 La descripción detallada del flujo está en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+---
+
+## Flujo de una petición
+
+Ciclo de vida completo de `POST /api/users` a través de todos los componentes:
+
+```
+Request
+  │
+  ├─[1] RateLimitFilter ──────────── 429 si la IP excede 20 req/min
+  │
+  ├─[2] SecurityHeadersFilter ────── agrega X-Frame-Options, CSP, HSTS, etc. (siempre pasa)
+  │
+  ├─[3] Spring Security ──────────── 403 si ruta protegida sin token
+  │
+  ├─[4] JwtAuthenticationFilter ──── valida Bearer token (pasa si ruta pública)
+  │
+  ├─[5] UserController
+  │       └─ @Valid ──────────────── 400 si campos requeridos están vacíos
+  │
+  ├─[6] UserValidator ────────────── 400 si nombre > 100 chars o más de 10 teléfonos
+  │
+  ├─[7] UserMapper  (DTO → Command)─ transforma sin lógica
+  │
+  ├─[8] RegisterUserService
+  │       ├─ new Email(value) ─────── 400 si formato de correo inválido
+  │       ├─ new Password(value) ──── 400 si formato de contraseña inválido
+  │       ├─ existsByEmail ─────────── 409 si el correo ya existe en BD
+  │       ├─ JwtService ────────────── genera JWT firmado HS256
+  │       ├─ BCryptPasswordEncoder ─── hashea la contraseña
+  │       └─ UserDomainService ─────── construye User (UUID + timestamps)
+  │
+  ├─[9] UserPersistenceAdapter
+  │       ├─ UserPersistenceMapper ─── User → UserEntity + PhoneEntity[]
+  │       └─ SpringDataUserRepository ─ INSERT en H2 (users + phones)
+  │
+  └─[10] UserMapper (User → ResponseDto)
+          └─ HTTP 201 Created ✓
+```
+
+### Detalle por componente
+
+| # | Componente | Capa | Responsabilidad | Fallo posible |
+|---|-----------|------|-----------------|---------------|
+| 1 | `RateLimitFilter` | Infrastructure | Limita requests por IP (sliding window) | 429 |
+| 2 | `SecurityHeadersFilter` | Infrastructure | Inyecta headers de seguridad HTTP | — |
+| 3 | Spring Security | Infrastructure | Autorización de rutas | 403 |
+| 4 | `JwtAuthenticationFilter` | Infrastructure | Valida y carga token JWT | 401 |
+| 5 | `UserController` + `@Valid` | Infrastructure | Deserializa JSON y valida campos requeridos | 400 |
+| 6 | `UserValidator` | Application | Valida reglas de negocio sobre el DTO | 400 |
+| 7 | `UserMapper.toCommand()` | Application | Transforma DTO → Command (sin lógica) | — |
+| 8 | `RegisterUserService` | Application | Orquesta el caso de uso | 400 / 409 |
+| 8a | `Email` value object | Domain | Valida formato de correo en el constructor | 400 |
+| 8b | `Password` value object | Domain | Valida formato de contraseña en el constructor | 400 |
+| 8c | `UserDomainService` | Domain | Construye `User` con invariantes garantizados | — |
+| 9 | `UserPersistenceAdapter` | Infrastructure | Persiste en H2 vía JPA | 500 |
+| 10 | `UserMapper.toResponse()` | Application | Transforma `User` → ResponseDto | — |
+
+### Excepciones — `GlobalExceptionHandler`
+
+En cualquier punto del flujo 5→9, si se lanza una excepción Spring la intercepta aquí:
+
+| Excepción | HTTP | Mensaje |
+|-----------|------|---------|
+| `EmailAlreadyRegisteredException` | 409 | "El correo ya registrado" |
+| `InvalidEmailFormatException` | 400 | "El correo no tiene un formato válido" |
+| `InvalidPasswordFormatException` | 400 | "La contraseña no tiene un formato válido..." |
+| `BusinessValidationException` | 400 | mensaje dinámico |
+| `MethodArgumentNotValidException` | 400 | mensaje del campo fallido |
+| `HttpMessageNotReadableException` | 400 | "El cuerpo no es un JSON válido" |
+| `Exception` (cualquier otra) | 500 | "Error interno del servidor" |
 
 ---
 
