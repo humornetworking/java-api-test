@@ -28,7 +28,6 @@ spring:
         web-allow-others: false
 
 jwt:
-  # IMPORTANT: Change this secret in production. Must be Base64-encoded and at least 256 bits.
   secret: dGhpcy1pcy1hLXZlcnktc2VjdXJlLXNlY3JldC1rZXktZm9yLWp3dC10b2tlbi1nZW5lcmF0aW9u
   expiration-ms: 86400000  # 24 hours
 
