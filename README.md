@@ -176,10 +176,10 @@ curl -X POST http://localhost:8081/api/users \
 
 ### Correo electrónico
 
-- **Regex:** `^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.cl$`
-- El correo **debe terminar en `.cl`**
-- Ejemplos válidos: `juan@empresa.cl`, `a.b+c@mi-empresa.cl`
-- Ejemplos inválidos: `juan@empresa.com`, `juan@empresa`, `@empresa.cl`
+- **Regex:** `^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`
+- Acepta cualquier dominio con TLD de 2 o más caracteres
+- Ejemplos válidos: `juan@empresa.com`, `a.b+c@mi-empresa.org`, `user@mail.co.uk`
+- Ejemplos inválidos: `juan@empresa`, `@empresa.com`, `juan@.com`, `juanempresa.com`
 
 ### Contraseña
 

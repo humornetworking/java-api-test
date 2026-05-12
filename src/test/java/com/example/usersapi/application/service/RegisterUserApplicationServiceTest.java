@@ -41,9 +41,9 @@ class RegisterUserApplicationServiceTest {
     @InjectMocks
     private RegisterUserApplicationService service;
 
-    private static final String VALID_EMAIL = "juan@rodriguez.cl";
+    private static final String VALID_EMAIL = "juan@rodriguez.org";
     private static final String VALID_PASSWORD = "Hunter12";
-    private static final String EMAIL_REGEX = "^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.cl$";
+    private static final String EMAIL_REGEX = "^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$";
     private static final String PASSWORD_REGEX = "^(?=(?:.*[0-9]){2})(?=.*[A-Z])(?=.*[a-z]).{6,}$";
 
     @BeforeEach
@@ -90,7 +90,7 @@ class RegisterUserApplicationServiceTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"juan@rodriguez.com", "juan@rodriguez", "juanrodriguez.cl", "@rodriguez.cl", ""})
+    @ValueSource(strings = {"juan@rodriguez", "juanrodriguez.com", "@rodriguez.com", "juan@.com", ""})
     void registerUser_throwsForInvalidEmail(String invalidEmail) {
         RegisterUserCommand command = new RegisterUserCommand("Juan", invalidEmail, VALID_PASSWORD, List.of());
 
@@ -108,7 +108,7 @@ class RegisterUserApplicationServiceTest {
         when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         RegisterUserCommand command = new RegisterUserCommand(
-                "Juan", "juan.perez@empresa.cl", VALID_PASSWORD, List.of());
+                "Juan", "juan.perez@empresa.com.ar", VALID_PASSWORD, List.of());
 
         User result = service.registerUser(command);
         assertThat(result).isNotNull();

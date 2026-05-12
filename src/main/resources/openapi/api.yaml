@@ -25,7 +25,7 @@ paths:
       summary: Registro de nuevo usuario
       description: |
         Crea un nuevo usuario en el sistema.
-        - El correo debe tener formato `aaaaaaa@dominio.cl`.
+        - El correo debe tener un formato válido (ej. `usuario@dominio.com`).
         - La contraseña debe contener al menos una mayúscula, letras minúsculas y exactamente dos dígitos.
         - El correo debe ser único en el sistema.
       operationId: registerUser
@@ -105,7 +105,7 @@ components:
           type: string
           format: email
           description: Correo electrónico (debe terminar en .cl)
-          example: "juan@rodriguez.cl"
+          example: "juan@rodriguez.org"
         password:
           type: string
           description: Contraseña (una mayúscula, minúsculas, dos dígitos)
