@@ -161,18 +161,6 @@ curl -X POST http://localhost:8081/api/users \
 
 ---
 
-### Rate limit excedido
-
-**Respuesta `429 Too Many Requests`:**
-
-```json
-{
-  "mensaje": "Demasiadas solicitudes. Por favor, intente más tarde."
-}
-```
-
----
-
 ## Validaciones
 
 ### Correo electrónico
@@ -201,7 +189,7 @@ El proyecto sigue **arquitectura hexagonal (Ports & Adapters)**:
 ```
 ┌────────────────────────────────────────────────────────────┐
 │              FILTROS / INTERCEPTORES                       │
-│  RateLimitFilter → SecurityHeadersFilter → JwtAuthFilter  │
+│                   JwtAuthFilter                            │
 └──────────────────────────┬─────────────────────────────────┘
                            │
 ┌──────────────────────────▼─────────────────────────────────┐
@@ -250,22 +238,18 @@ Ciclo de vida completo de `POST /api/users` a través de todos los componentes:
 ```
 Request
   │
-  ├─[1] RateLimitFilter ──────────── 429 si la IP excede 20 req/min
+  ├─[1] Spring Security ──────────── 403 si ruta protegida sin token
   │
-  ├─[2] SecurityHeadersFilter ────── agrega X-Frame-Options, CSP, HSTS, etc. (siempre pasa)
+  ├─[2] JwtAuthenticationFilter ──── valida Bearer token (pasa si ruta pública)
   │
-  ├─[3] Spring Security ──────────── 403 si ruta protegida sin token
-  │
-  ├─[4] JwtAuthenticationFilter ──── valida Bearer token (pasa si ruta pública)
-  │
-  ├─[5] UserController
+  ├─[3] UserController
   │       └─ @Valid ──────────────── 400 si campos requeridos están vacíos
   │
-  ├─[6] UserValidator ────────────── 400 si nombre > 100 chars o más de 10 teléfonos
+  ├─[4] UserValidator ────────────── 400 si nombre > 100 chars o más de 10 teléfonos
   │
-  ├─[7] UserMapper  (DTO → Command)─ transforma sin lógica
+  ├─[5] UserMapper  (DTO → Command)─ transforma sin lógica
   │
-  ├─[8] RegisterUserService
+  ├─[6] RegisterUserService
   │       ├─ new Email(value) ─────── 400 si formato de correo inválido
   │       ├─ new Password(value) ──── 400 si formato de contraseña inválido
   │       ├─ existsByEmail ─────────── 409 si el correo ya existe en BD
@@ -277,7 +261,7 @@ Request
   │       ├─ UserPersistenceMapper ─── User → UserEntity + PhoneEntity[]
   │       └─ SpringDataUserRepository ─ INSERT en H2 (users + phones)
   │
-  └─[10] UserMapper (User → ResponseDto)
+  └─[8] UserMapper (User → ResponseDto)
           └─ HTTP 201 Created ✓
 ```
 
@@ -285,19 +269,17 @@ Request
 
 | # | Componente | Capa | Responsabilidad | Fallo posible |
 |---|-----------|------|-----------------|---------------|
-| 1 | `RateLimitFilter` | Infrastructure | Limita requests por IP (sliding window) | 429 |
-| 2 | `SecurityHeadersFilter` | Infrastructure | Inyecta headers de seguridad HTTP | — |
-| 3 | Spring Security | Infrastructure | Autorización de rutas | 403 |
-| 4 | `JwtAuthenticationFilter` | Infrastructure | Valida y carga token JWT | 401 |
-| 5 | `UserController` + `@Valid` | Infrastructure | Deserializa JSON y valida campos requeridos | 400 |
-| 6 | `UserValidator` | Application | Valida reglas de negocio sobre el DTO | 400 |
-| 7 | `UserMapper.toCommand()` | Application | Transforma DTO → Command (sin lógica) | — |
-| 8 | `RegisterUserService` | Application | Orquesta el caso de uso | 400 / 409 |
-| 8a | `Email` value object | Domain | Valida formato de correo en el constructor | 400 |
-| 8b | `Password` value object | Domain | Valida formato de contraseña en el constructor | 400 |
-| 8c | `UserDomainService` | Domain | Construye `User` con invariantes garantizados | — |
-| 9 | `UserPersistenceAdapter` | Infrastructure | Persiste en H2 vía JPA | 500 |
-| 10 | `UserMapper.toResponse()` | Application | Transforma `User` → ResponseDto | — |
+| 1 | Spring Security | Infrastructure | Autorización de rutas | 403 |
+| 2 | `JwtAuthenticationFilter` | Infrastructure | Valida y carga token JWT | 401 |
+| 3 | `UserController` + `@Valid` | Infrastructure | Deserializa JSON y valida campos requeridos | 400 |
+| 4 | `UserValidator` | Application | Valida reglas de negocio sobre el DTO | 400 |
+| 5 | `UserMapper.toCommand()` | Application | Transforma DTO → Command (sin lógica) | — |
+| 6 | `RegisterUserService` | Application | Orquesta el caso de uso | 400 / 409 |
+| 6a | `Email` value object | Domain | Valida formato de correo en el constructor | 400 |
+| 6b | `Password` value object | Domain | Valida formato de contraseña en el constructor | 400 |
+| 6c | `UserDomainService` | Domain | Construye `User` con invariantes garantizados | — |
+| 7 | `UserPersistenceAdapter` | Infrastructure | Persiste en H2 vía JPA | 500 |
+| 8 | `UserMapper.toResponse()` | Application | Transforma `User` → ResponseDto | — |
 
 ### Excepciones — `GlobalExceptionHandler`
 
@@ -365,9 +347,6 @@ java-api-test/
     │   │       │       └── repository/
     │   │       ├── config/
     │   │       │   └── SecurityConfig.java
-    │   │       ├── filter/
-    │   │       │   ├── RateLimitFilter.java     # Rate limiting por IP
-    │   │       │   └── SecurityHeadersFilter.java
     │   │       └── security/
     │   │           ├── JwtService.java          # Generación/validación JWT
     │   │           ├── JwtAuthenticationFilter.java
@@ -398,7 +377,6 @@ java-api-test/
 | Servidor | Apache Tomcat (embedded) |
 | Seguridad | Spring Security |
 | Token | JWT — JJWT 0.12.3 (HS256) |
-| Rate Limiting | Bucket4j 8.x (token-bucket por IP) |
 | API Docs | SpringDoc OpenAPI 3 + Swagger UI |
 | Tests | JUnit 5 + Mockito + Spring MockMvc |
 | Utilidades | Lombok |
@@ -462,9 +440,7 @@ La consola H2 está disponible en `http://localhost:8081/h2-console`:
 
 ### Filtros aplicados a cada request
 
-1. **RateLimitFilter** — 20 requests/minuto por IP. Devuelve `429` si se excede.
-2. **SecurityHeadersFilter** — Agrega headers: `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Content-Security-Policy`, `Strict-Transport-Security`, `Cache-Control`.
-3. **JwtAuthenticationFilter** — Valida el token `Bearer` en el header `Authorization` para rutas protegidas.
+1. **JwtAuthenticationFilter** — Valida el token `Bearer` en el header `Authorization` para rutas protegidas.
 
 ### Token JWT
 
@@ -479,11 +455,6 @@ La consola H2 está disponible en `http://localhost:8081/h2-console`:
 jwt:
   secret: <base64-encoded-secret-de-minimo-256-bits>
   expiration-ms: 3600000  # 1 hora
-
-app:
-  rate-limit:
-    capacity: 10
-    refill-duration-seconds: 60
 ```
 
 ---
