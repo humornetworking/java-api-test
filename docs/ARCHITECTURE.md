@@ -11,13 +11,7 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │  FILTERS / INTERCEPTORS (Servlet Filter Chain)                      │
 │                                                                     │
-│  1. RateLimitFilter (Order 1)                                       │
-│     └── Bucket4j token-bucket por IP → 429 si excede límite        │
-│                                                                     │
-│  2. SecurityHeadersFilter (Order 2)                                 │
-│     └── X-Content-Type-Options, X-Frame-Options, CSP, HSTS, etc.  │
-│                                                                     │
-│  3. JwtAuthenticationFilter (Spring Security)                       │
+│  1. JwtAuthenticationFilter (Spring Security)                       │
 │     └── Valida Bearer token → SecurityContext                       │
 └─────────────────────────┬───────────────────────────────────────────┘
                           │
@@ -107,10 +101,6 @@ POST /api/users
 Body: { name, email, password, phones[] }
 
      ┌─────────────────────────────────┐
-     │  ¿Rate limit excedido?          │ ──YES──▶ 429 Too Many Requests
-     └─────────────┬───────────────────┘
-                   │ NO
-     ┌─────────────▼───────────────────┐
      │  ¿Email formato válido?         │ ──NO───▶ 400 Bad Request
      │  (regex: xxx@dominio.cl)        │          {"mensaje": "..."}
      └─────────────┬───────────────────┘
@@ -148,7 +138,6 @@ Body: { name, email, password, phones[] }
 | Persistencia       | Spring Data JPA + Hibernate       |
 | Servidor           | Tomcat Embedded                   |
 | Seguridad          | Spring Security + JWT (JJWT 0.12) |
-| Rate Limiting      | Bucket4j 8.x                      |
 | Documentación API  | SpringDoc OpenAPI 3 (Swagger UI)  |
 | Tests              | JUnit 5 + Mockito + MockMvc       |
 | Utilidades         | Lombok                            |

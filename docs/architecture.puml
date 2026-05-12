@@ -14,8 +14,6 @@ package "PRIMARY ADAPTERS (Driving)" #E8F4FD {
 }
 
 package "FILTERS / INTERCEPTORS" #FFF3E0 {
-  component "SecurityHeadersFilter\n(Order 2)" as secFilter
-  component "RateLimitFilter\n(Order 1)\n[Bucket4j - Token Bucket]" as rateFilter
   component "JwtAuthenticationFilter\n[Spring Security]" as jwtFilter
 }
 
@@ -45,9 +43,7 @@ package "SECONDARY ADAPTERS (Driven)" #FCE4EC {
 }
 
 ' Relationships
-client --> rateFilter : HTTP Request
-rateFilter --> secFilter
-secFilter --> jwtFilter
+client --> jwtFilter : HTTP Request
 jwtFilter --> controller
 
 controller --> useCase : registerUser(command)
