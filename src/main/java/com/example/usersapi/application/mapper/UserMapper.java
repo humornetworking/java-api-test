@@ -1,18 +1,18 @@
-package com.example.usersapi.infrastructure.adapter.in.web.mapper;
+package com.example.usersapi.application.mapper;
 
+import com.example.usersapi.application.dto.request.RegisterUserRequestDto;
+import com.example.usersapi.application.dto.response.PhoneResponseDto;
+import com.example.usersapi.application.dto.response.RegisterUserResponseDto;
 import com.example.usersapi.domain.model.User;
 import com.example.usersapi.domain.port.in.PhoneData;
 import com.example.usersapi.domain.port.in.RegisterUserCommand;
-import com.example.usersapi.infrastructure.adapter.in.web.dto.PhoneResponseDto;
-import com.example.usersapi.infrastructure.adapter.in.web.dto.RegisterUserRequestDto;
-import com.example.usersapi.infrastructure.adapter.in.web.dto.RegisterUserResponseDto;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
 import java.util.List;
 
 @Component
-public class UserWebMapper {
+public class UserMapper {
 
     public RegisterUserCommand toCommand(RegisterUserRequestDto dto) {
         List<PhoneData> phones = dto.phones() == null
@@ -20,7 +20,6 @@ public class UserWebMapper {
                 : dto.phones().stream()
                         .map(p -> new PhoneData(p.number(), p.citycode(), p.contrycode()))
                         .toList();
-
         return new RegisterUserCommand(dto.name(), dto.email(), dto.password(), phones);
     }
 
@@ -30,7 +29,6 @@ public class UserWebMapper {
                 : user.getPhones().stream()
                         .map(p -> new PhoneResponseDto(p.number(), p.citycode(), p.contrycode()))
                         .toList();
-
         return RegisterUserResponseDto.builder()
                 .id(user.getId())
                 .name(user.getName())

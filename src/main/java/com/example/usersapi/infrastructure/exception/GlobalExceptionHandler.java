@@ -1,9 +1,10 @@
-package com.example.usersapi.infrastructure.adapter.in.web;
+package com.example.usersapi.infrastructure.exception;
 
+import com.example.usersapi.application.dto.response.ErrorResponseDto;
+import com.example.usersapi.domain.exception.BusinessValidationException;
 import com.example.usersapi.domain.exception.EmailAlreadyRegisteredException;
 import com.example.usersapi.domain.exception.InvalidEmailFormatException;
 import com.example.usersapi.domain.exception.InvalidPasswordFormatException;
-import com.example.usersapi.infrastructure.adapter.in.web.dto.ErrorResponseDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,13 +25,19 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(InvalidEmailFormatException.class)
-    public ResponseEntity<ErrorResponseDto> handleInvalidEmailFormat(InvalidEmailFormatException ex) {
+    public ResponseEntity<ErrorResponseDto> handleInvalidEmail(InvalidEmailFormatException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponseDto(ex.getMessage()));
     }
 
     @ExceptionHandler(InvalidPasswordFormatException.class)
-    public ResponseEntity<ErrorResponseDto> handleInvalidPasswordFormat(InvalidPasswordFormatException ex) {
+    public ResponseEntity<ErrorResponseDto> handleInvalidPassword(InvalidPasswordFormatException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponseDto(ex.getMessage()));
+    }
+
+    @ExceptionHandler(BusinessValidationException.class)
+    public ResponseEntity<ErrorResponseDto> handleBusinessValidation(BusinessValidationException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponseDto(ex.getMessage()));
     }
@@ -52,7 +59,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponseDto> handleGenericException(Exception ex) {
+    public ResponseEntity<ErrorResponseDto> handleGeneric(Exception ex) {
         log.error("Unhandled exception", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ErrorResponseDto("Error interno del servidor"));

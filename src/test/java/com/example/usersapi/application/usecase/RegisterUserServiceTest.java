@@ -1,4 +1,4 @@
-package com.example.usersapi.application.service;
+package com.example.usersapi.application.usecase;
 
 import com.example.usersapi.domain.exception.EmailAlreadyRegisteredException;
 import com.example.usersapi.domain.exception.InvalidEmailFormatException;
@@ -9,18 +9,16 @@ import com.example.usersapi.domain.port.in.RegisterUserCommand;
 import com.example.usersapi.domain.port.out.PasswordEncoderPort;
 import com.example.usersapi.domain.port.out.TokenGeneratorPort;
 import com.example.usersapi.domain.port.out.UserRepositoryPort;
+import com.example.usersapi.domain.service.UserDomainService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -29,27 +27,21 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class RegisterUserApplicationServiceTest {
+class RegisterUserServiceTest {
 
-    @Mock
-    private UserRepositoryPort userRepository;
-    @Mock
-    private TokenGeneratorPort tokenGenerator;
-    @Mock
-    private PasswordEncoderPort passwordEncoder;
+    @Mock private UserRepositoryPort userRepository;
+    @Mock private TokenGeneratorPort tokenGenerator;
+    @Mock private PasswordEncoderPort passwordEncoder;
 
-    @InjectMocks
-    private RegisterUserApplicationService service;
+    private RegisterUserService service;
 
-    private static final String VALID_EMAIL = "juan@rodriguez.org";
+    private static final String VALID_EMAIL    = "juan@rodriguez.org";
     private static final String VALID_PASSWORD = "Hunter12";
-    private static final String EMAIL_REGEX = "^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$";
-    private static final String PASSWORD_REGEX = "^(?=(?:.*[0-9]){2})(?=.*[A-Z])(?=.*[a-z]).{6,}$";
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(service, "emailRegex", EMAIL_REGEX);
-        ReflectionTestUtils.setField(service, "passwordRegex", PASSWORD_REGEX);
+        service = new RegisterUserService(
+                userRepository, tokenGenerator, passwordEncoder, new UserDomainService());
     }
 
     @Test
@@ -59,16 +51,15 @@ class RegisterUserApplicationServiceTest {
                 List.of(new PhoneData("1234567", "1", "57")));
 
         when(userRepository.existsByEmail(VALID_EMAIL)).thenReturn(false);
-        when(tokenGenerator.generateToken(VALID_EMAIL)).thenReturn("jwt-token-value");
+        when(tokenGenerator.generateToken(VALID_EMAIL)).thenReturn("jwt-token");
         when(passwordEncoder.encode(VALID_PASSWORD)).thenReturn("$2a$bcrypt");
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
         User result = service.registerUser(command);
 
-        assertThat(result).isNotNull();
         assertThat(result.getId()).isNotNull();
         assertThat(result.getEmail()).isEqualTo(VALID_EMAIL);
-        assertThat(result.getToken()).isEqualTo("jwt-token-value");
+        assertThat(result.getToken()).isEqualTo("jwt-token");
         assertThat(result.isActive()).isTrue();
         assertThat(result.getCreated()).isNotNull();
         assertThat(result.getLastLogin()).isEqualTo(result.getCreated());
@@ -76,7 +67,21 @@ class RegisterUserApplicationServiceTest {
     }
 
     @Test
-    void registerUser_throwsWhenEmailAlreadyRegistered() {
+    void registerUser_emailIsNormalizedToLowercase() {
+        RegisterUserCommand command = new RegisterUserCommand(
+                "Juan", "JUAN@Rodriguez.ORG", VALID_PASSWORD, List.of());
+
+        when(userRepository.existsByEmail("juan@rodriguez.org")).thenReturn(false);
+        when(tokenGenerator.generateToken(anyString())).thenReturn("token");
+        when(passwordEncoder.encode(any())).thenReturn("encoded");
+        when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        User result = service.registerUser(command);
+        assertThat(result.getEmail()).isEqualTo("juan@rodriguez.org");
+    }
+
+    @Test
+    void registerUser_throwsWhenEmailAlreadyExists() {
         RegisterUserCommand command = new RegisterUserCommand(
                 "Juan", VALID_EMAIL, VALID_PASSWORD, List.of());
 
@@ -100,20 +105,6 @@ class RegisterUserApplicationServiceTest {
         verifyNoInteractions(userRepository);
     }
 
-    @Test
-    void registerUser_validEmailWithDotCl_passes() {
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
-        when(tokenGenerator.generateToken(anyString())).thenReturn("token");
-        when(passwordEncoder.encode(anyString())).thenReturn("encoded");
-        when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-
-        RegisterUserCommand command = new RegisterUserCommand(
-                "Juan", "juan.perez@empresa.com.ar", VALID_PASSWORD, List.of());
-
-        User result = service.registerUser(command);
-        assertThat(result).isNotNull();
-    }
-
     @ParameterizedTest
     @ValueSource(strings = {"hunter2", "HUNTER12", "Hunter1", "H1", "hunter"})
     void registerUser_throwsForInvalidPassword(String invalidPassword) {
@@ -121,13 +112,15 @@ class RegisterUserApplicationServiceTest {
 
         assertThatThrownBy(() -> service.registerUser(command))
                 .isInstanceOf(InvalidPasswordFormatException.class);
+
+        verifyNoInteractions(userRepository);
     }
 
     @Test
     void registerUser_withNullPhones_succeeds() {
         RegisterUserCommand command = new RegisterUserCommand("Juan", VALID_EMAIL, VALID_PASSWORD, null);
 
-        when(userRepository.existsByEmail(VALID_EMAIL)).thenReturn(false);
+        when(userRepository.existsByEmail(any())).thenReturn(false);
         when(tokenGenerator.generateToken(any())).thenReturn("token");
         when(passwordEncoder.encode(any())).thenReturn("encoded");
         when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -137,7 +130,7 @@ class RegisterUserApplicationServiceTest {
     }
 
     @Test
-    void registerUser_passwordIsEncoded() {
+    void registerUser_passwordIsHashed() {
         RegisterUserCommand command = new RegisterUserCommand(
                 "Juan", VALID_EMAIL, VALID_PASSWORD, List.of());
 

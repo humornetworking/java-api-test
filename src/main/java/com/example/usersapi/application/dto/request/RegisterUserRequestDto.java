@@ -1,4 +1,4 @@
-package com.example.usersapi.infrastructure.adapter.in.web.dto;
+package com.example.usersapi.application.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 
